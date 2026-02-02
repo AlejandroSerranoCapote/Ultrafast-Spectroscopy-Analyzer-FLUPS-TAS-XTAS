@@ -126,12 +126,8 @@ $$IRF(t) = \frac{1}{w \sqrt{\pi}} \exp\left( -\left( \frac{t - t_0}{w} \right)^2
 > *GUI TAS*
 <img width="1381" height="925" alt="image" src="https://github.com/user-attachments/assets/fb28d525-57a1-464f-994e-8829048f7ac9" />
 
-
 > *GUI Global Fit*
-<p align="center">
-   <img src="https://github.com/user-attachments/assets/7effdce7-a700-4892-be37-54eac1b0866c" width="48%">
-   <img src="https://github.com/user-attachments/assets/b103c26c-9a2b-42e3-977e-83fe45f9ab6e" width="48%">
- </p>
+<img width="1143" height="791" alt="GLOBALfitimage" src="https://github.com/user-attachments/assets/c0ae8e3f-294e-4242-ae37-2490c1787856" />
 
 > *Decay Associated Spectra*
 <img width="788" height="666" alt="image" src="https://github.com/user-attachments/assets/b84d6776-b94d-4424-9ddf-70cdac77e1dc" />
