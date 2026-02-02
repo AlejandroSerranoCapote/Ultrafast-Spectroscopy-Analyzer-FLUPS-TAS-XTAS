@@ -6,7 +6,7 @@ from scipy import special as _special
 
 def load_npy(parent=None, normalize_per_wl=True):
     """
-    Carga el archivo .npy, corrige baseline y devuelve matrices limpias.
+    Carga el archivo .npy.
     """
     file_path, _ = QFileDialog.getOpenFileName(parent, "Select treated data file", "", "NumPy files (*.npy)")
     if not file_path:
@@ -38,74 +38,98 @@ def binning(data_c, WL, bin_size):
         WLAVG[i] = np.mean(WL[i*bin_size:(i+1)*bin_size])
     return datacAVG, WLAVG
 
-def convolved_exp(t, t0, tau, w):
-    """
-    Analytical expression for convolution of single-exponential decay
-    with Gaussian IRF.
-    """
-    t = np.asarray(t)
-    tau = np.maximum(tau, 1e-12) # Evitar división por cero
-    w = np.maximum(w, 1e-12)
-    
-    arg1 = (w**2 - 2 * tau * (t - t0)) / (2 * tau**2)
-    arg2 = (w**2 - tau * (t - t0)) / (np.sqrt(2) * w * tau)
-    # --- PROTECCIÓN CONTRA OVERFLOW ---
 
+def convolved_exp_vectorized(t, t0, taus, w):
+    """
+    Versión HÍBRIDA: Vectorizada pero usando 'erf' (más rápida que erfc).
+    Optimized for Speed.
+    """
+    # t -> (N, 1)
+    if t.ndim == 1:
+        t = t[:, np.newaxis]
+        
+    # taus -> (1, M)
+    taus = np.asarray(taus)
+    if taus.ndim == 1:
+        taus = taus[np.newaxis, :]
+    
+    # Constantes pequeñas para evitar división por cero
+    tau_safe = np.maximum(taus, 1e-12)
+    w_safe = np.maximum(w, 1e-12)
+    
+    # arg1 = (w^2 - 2*tau*(t-t0)) / (2*tau^2)
+    # Factorizamos para reducir operaciones:
+    t_diff = t - t0
+    w2 = w_safe**2
+    
+    # Operación matricial (Broadcasting)
+    arg1 = (w2 - 2 * tau_safe * t_diff) / (2 * tau_safe**2)
+    arg2 = (w2 - tau_safe * t_diff) / (np.sqrt(2) * w_safe * tau_safe)
+
+    # Mantenemos el clip en 700 que funciona bien con float64
     arg1 = np.clip(arg1, -700, 700)
+    
+    # Fórmula: 0.5 * exp(arg1) * (1 - erf(arg2))
     return 0.5 * np.exp(arg1) * (1 - _special.erf(arg2))
 
+
+
+# =============================================================================
+# MODEL EVALUATION FUNCTIONS
+# =============================================================================
+
 def eval_global_model(x, t, numExp, numWL, t0_choice_str):
-    """
-    Calcula la matriz del modelo.
-    Estructura de x:
-    - Si t0 variable (Chirp): [w, tau_1..tau_n,  (t0_wl1, A1_wl1..An_wl1), (t0_wl2...)...]
-    - Si t0 fijo (Global):    [w, t0, tau_1..tau_n, (A1_wl1..An_wl1), (A1_wl2...)...]
-    """
     F = np.zeros((len(t), numWL))
     
-    if t0_choice_str == 'Yes': # CHIRP CORRECTION MODE (t0 varía por WL)
+    if t0_choice_str == 'Yes': # CHIRP MODE
         w = x[0]
-        taus = x[1:1+numExp]
+        taus = x[1:1+numExp] # Array de todos los Taus
         base_idx = 1 + numExp
         
         for j in range(numWL):
             idx = base_idx + j*(numExp+1)
             t0 = x[idx]
-            Amps = x[idx+1 : idx+1+numExp]
+            Amps = x[idx+1 : idx+1+numExp] # Array de Amplitudes (shape: numExp,)
             
-            # Suma de exponenciales para esta longitud de onda
-            kinetics = np.zeros_like(t)
-            for n in range(numExp):
-                kinetics += Amps[n] * convolved_exp(t, t0, taus[n], w)
-            F[:, j] = kinetics
+            # 1. Calculamos TODAS las bases exponenciales de golpe para este t0
+            # Devuelve matriz (Tiempo x numExp) directamente.
+            bases = convolved_exp_vectorized(t, t0, taus, w)
+            
+            # 2. Multiplicamos matricialmente Bases @ Amplitudes
+            # (N_t, N_exp) @ (N_exp,) -> (N_t,)  (Vector plano)
+            F[:, j] = bases @ Amps
 
-    else: # STANDARD GLOBAL FIT (t0 único global) 
+    else: # GLOBAL FIT (Optimización Máxima)
         w = x[0]
         t0 = x[1]
         taus = x[2:2+numExp]
         A_base = 2 + numExp
         
-        # 1. Pre-calcular las bases cinéticas (Time x NumExp)
-        # Esto se hace una sola vez para todas las WLs
-        basis_functions = np.zeros((len(t), numExp))
-        for n in range(numExp):
-            basis_functions[:, n] = convolved_exp(t, t0, taus[n], w)
+        # --- CORRECCIÓN AQUÍ ---
+        # NO usamos bucle for. Pasamos 'taus' entero.
+        # Devuelve directamente la matriz (Tiempo x numExp)
+        basis_functions = convolved_exp_vectorized(t, t0, taus, w)
             
-        # 2. Extraer todas las amplitudes en una matriz (NumExp x NumWL)
-        # x tiene [A1_wl1, A2_wl1, ..., A1_wl2, A2_wl2...]
+        # Extraer Amplitudes
         all_Amps = x[A_base:].reshape(numWL, numExp).T 
         
-        # 3. Multiplicación matricial: [T, Exp] @ [Exp, WL] -> [T, WL]
+        # Multiplicación
         F = basis_functions @ all_Amps
         
     return F
 
+
 def get_sequential_populations(t, t0, w, taus):
-    """ Calculates populations for a sequential model A -> B -> C... """
+    """ 
+    Calculates populations for a sequential model A -> B -> C... 
+    (Kept logical loop structure as sequential dependencies are complex to fully vectorize cleanly)
+    """
     k = 1.0 / np.asarray(taus) # Rates
     pops = []
     
-    E = [convolved_exp(t, t0, tau, w) for tau in taus]
+    # Get all basic exponentials at once
+    E_matrix = convolved_exp_vectorized(t, t0, taus, w)
+    E = [E_matrix[:, i] for i in range(len(taus))]
     
     # --- Species 1 ---
     pops.append(E[0])
@@ -124,30 +148,22 @@ def get_sequential_populations(t, t0, w, taus):
         d0 = (k[1]-k[0]) * (k[2]-k[0])
         d1 = (k[0]-k[1]) * (k[2]-k[1])
         d2 = (k[0]-k[2]) * (k[1]-k[2])
+        # Safety for degenerate rates
         if abs(d0) < 1e-9: d0 = 1e-9
         if abs(d1) < 1e-9: d1 = 1e-9
         if abs(d2) < 1e-9: d2 = 1e-9
+        
         p3 = (k0 * k1) * ( (E[0]/d0) + (E[1]/d1) + (E[2]/d2) )
         pops.append(p3)
 
     return pops
 
-
 def eval_sequential_model(x, t, numExp, numWL, t0_choice_str):
     """
-    Calcula la matriz del modelo SECUENCIAL (A -> B -> C...).
-    
-    Interpretación de los parámetros 'Amps' en x:
-    En modelo paralelo: Amps = DAS (Decay Associated Spectra)
-    En modelo secuencial: Amps = SAS (Species Associated Spectra) o EADS
-    
-    Estructura de x (idéntica a tu modelo global):
-    - Chirp (Yes): [w, tau_1..n, (t0_wl1, SAS1_wl1..SASn_wl1), ...]
-    - Global (No): [w, t0, tau_1..n, (SAS1_wl1..SASn_wl1), (SAS1_wl2...)...]
+    Sequential Model (A -> B -> C...)
     """
     F = np.zeros((len(t), numWL))
     
-    # --- MODO CHIRP CORRECTION (t0 varía por WL) ---
     if t0_choice_str == 'Yes': 
         w = x[0]
         taus = x[1:1+numExp]
@@ -156,40 +172,97 @@ def eval_sequential_model(x, t, numExp, numWL, t0_choice_str):
         for j in range(numWL):
             idx = base_idx + j*(numExp+1)
             t0 = x[idx]
-            # Aquí 'Amps' son los coeficientes espectrales de las especies para esta WL
             sas_coeffs = x[idx+1 : idx+1+numExp] 
             
-            # 1. Calcular las poblaciones para este t0 específico
-            # Devuelve una lista [PopA, PopB, PopC...]
             pops_list = get_sequential_populations(t, t0, w, taus)
             
-            # 2. Combinación lineal: Suma(Poblacion_i * Espectro_i)
+            # Manual dot product for the single WL
             kinetics = np.zeros_like(t)
             for n in range(numExp):
                 kinetics += sas_coeffs[n] * pops_list[n]
             
             F[:, j] = kinetics
 
-    # --- MODO GLOBAL STANDARD (t0 fijo)
     else: 
         w = x[0]
         t0 = x[1]
         taus = x[2:2+numExp]
         A_base = 2 + numExp
         
-        # 1. Calcular la base cinética (Poblaciones) UNA SOLA VEZ
-        # get_sequential_populations devuelve lista de arrays 1D.
+        # 1. Basis Functions (Time x Species)
         pops_list = get_sequential_populations(t, t0, w, taus)
         basis_functions = np.column_stack(pops_list) 
         
-        # 2. Extraer todos los espectros (SAS) en una matriz (NumSpecies x NumWL)
-        # x contiene [S1_wl1, S2_wl1, ..., S1_wl2, S2_wl2...]
+        # 2. Amplitudes / SAS (Species x WL)
         all_SAS = x[A_base:].reshape(numWL, numExp).T 
         
-        # 3. Multiplicación matricial:
-        # [T, Species] @ [Species, WL] -> [T, WL]
+        # 3. Matrix Multiplication
         F = basis_functions @ all_SAS
         
     return F
 
+def damped_oscillation(t, t0, alpha, omega, phi, w):
+    """
+    Calculates damped oscillation with a Soft Step (approximating IRF convolution).
+    S(t) = 0.5 * (1 + erf((t-t0)/(sqrt(2)*w))) * exp(-alpha*(t-t0)) * sin(omega*(t-t0) + phi)
+    """
+    t_shifted = t - t0
+    
+    # 1. Safety Mask: Prevent exp() overflow for very negative times.
+    safe_mask = t_shifted > -6 * w
+    
+    osc = np.zeros_like(t_shifted)
+    
+    # Only calculate where it is numerically safe
+    ts_safe = t_shifted[safe_mask]
+    
+    # Smooth Step (Simulates convolution with Gaussian IRF)
+    # Using erf here is standard for step smoothing
+    step = 0.5 * (1 + _special.erf(ts_safe / (np.sqrt(2) * w)))
+    
+    # Damped Sine
+    decay = np.exp(-alpha * ts_safe)
+    sine = np.sin(omega * ts_safe + phi)
+    
+    osc[safe_mask] = step * decay * sine
+    
+    return osc
 
+def eval_oscillation_model(x, t, numExp, numWL, t0_choice_str):
+    """
+    Model: Sum(A_i * Exp_i) + B * Oscillation
+    """
+    F = np.zeros((len(t), numWL))
+    
+    if t0_choice_str == 'Yes':
+        raise NotImplementedError("Chirp not implemented for Oscillation model yet.")
+
+    # --- Global Parameters ---
+    w = x[0]
+    t0 = x[1]
+    taus = x[2:2+numExp]
+    
+    # Oscillation parameters
+    alpha = x[2+numExp]
+    omega = x[2+numExp+1]
+    phi   = x[2+numExp+2]
+    
+    A_base = 2 + numExp + 3 
+    
+    # 1. Decay Bases (Vectorized) -> Matrix (Time x Exp)
+    basis_exp = convolved_exp_vectorized(t, t0, taus, w)
+        
+    # 2. Oscillation Basis -> Matrix (Time x 1)
+    basis_osc = damped_oscillation(t, t0, alpha, omega, phi, w).reshape(-1, 1)
+    
+    # 3. Stack all bases: [T x (numExp + 1)]
+    all_bases = np.hstack([basis_exp, basis_osc])
+    
+    # 4. Extract Local Amplitudes [A1...An, B] per wavelength
+    num_local_params = numExp + 1
+    all_amps = x[A_base:].reshape(numWL, num_local_params).T
+    
+    # 5. Matrix Multiplication
+    F = all_bases @ all_amps
+    
+    return F

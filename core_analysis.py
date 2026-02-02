@@ -44,7 +44,6 @@ def load_from_paths(data_path, wl_path, td_path):
     """
     
     # ---- Cargar archivos ----
-    # Intentar leer como CSV o txt
     try:
         df = pd.read_csv(data_path, header=None, sep=None, engine='python')
         data = df.values
@@ -93,7 +92,7 @@ def load_data(auto_path=None, data_path=None, wl_path=None, td_path=None):
             WL, TD, data = read_csv_file(auto_path)
             return data, WL, TD
         except Exception:
-            pass  # fall back a tres archivos
+            pass  # fallback a tres archivos
 
     if data_path and wl_path and td_path:
         data, WL, TD = load_from_paths(data_path, wl_path, td_path)
@@ -108,6 +107,7 @@ def load_data(auto_path=None, data_path=None, wl_path=None, td_path=None):
 def eV_a_nm(E_eV):
     E_eV_safe = np.where(E_eV == 0,1 , E_eV)
     return 1239.841984 / E_eV_safe
+
 def t0_model(w, a, b, c, d):
     """
     Modelo no lineal propuesto:
