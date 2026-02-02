@@ -141,7 +141,20 @@ class FLUPSAnalyzer(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("FLUPS Analyzer — PyQt5 Edition")
-        self.setMinimumSize(1400, 900)
+        
+        screen = QApplication.primaryScreen()
+        screen_geom = screen.availableGeometry() # Tamaño útil (sin barra de tareas)
+        
+        w_target = int(screen_geom.width() * 0.85)
+        h_target = int(screen_geom.height() * 0.90)
+        
+        x_pos = (screen_geom.width() - w_target) // 2 + screen_geom.left()
+        
+        y_pos = screen_geom.top() + 35
+        
+        self.setGeometry(x_pos, y_pos, w_target, h_target)
+        
+        self.setMinimumSize(1000, 700)
     
         # estado
         self.WL = None
