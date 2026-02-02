@@ -7,6 +7,21 @@
 **Ultrafast Spectroscopy Analyzer** is a comprehensive, open-source software suite designed for the advanced processing and analysis of ultrafast spectroscopy data. It provides an intuitive graphical environment to transform raw experimental data into publication-quality results.
 
 ---
+> **Install the required dependencies** (run this command in the folder containing the script):
+> ```bash
+> pip install -r requirements.txt
+> ```
+>  **Run the application by typing the following in your terminal (inside the script folder):**
+> ```bash
+> python "Ultrafast Spectroscopy Analyzer.py"
+> ```
+> 
+>  **Create a Standalone Executable (.exe) (Run by typing in your terminal inside the script folder)**:
+> ```bash
+> pyinstaller --onefile --noconsole --icon=icon.ico --exclude-module PyQt6 "Ultrafast Spectroscopy Analyzer.py"
+> ```
+
+---
 
 ##  Supported Techniques
 
@@ -69,21 +84,6 @@ $$
 The time resolution is modeled using a Gaussian of width $w$ (FWHM) centered at $t_0$:
 
 $$IRF(t) = \frac{1}{w \sqrt{\pi}} \exp\left( -\left( \frac{t - t_0}{w} \right)^2 \right)$$
-
----
-> **Install the required dependencies** (run this command in the folder containing the script):
-> ```bash
-> pip install -r requirements.txt
-> ```
->  **Run the application by typing the following in your terminal (inside the script folder):**
-> ```bash
-> python "Ultrafast Spectroscopy Analyzer.py"
-> ```
-> 
->  **Create a Standalone Executable (.exe) (Run by typing in your terminal inside the script folder)**:
-> ```bash
-> pyinstaller --onefile --noconsole --icon=icon.ico --exclude-module PyQt6 "Ultrafast Spectroscopy Analyzer.py"
-> ```
 
 ---
 ##  Main Features
