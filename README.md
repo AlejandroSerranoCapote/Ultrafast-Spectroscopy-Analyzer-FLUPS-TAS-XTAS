@@ -16,7 +16,7 @@ The application is optimized for two main experimental methods:
 
 ## Mathematical Models
 
-The software fits the experimental signal $\Delta A(t, \lambda)$ using two main approaches, both convolved with the Instrument Response Function (IRF).
+The software fits the experimental signal $\Delta A(t, \lambda)$ using three main approaches, all convolved with the Instrument Response Function (IRF).
 
 ---
 
