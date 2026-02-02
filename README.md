@@ -13,7 +13,7 @@
 > ```
 >  **Run the application by typing the following in your terminal (inside the script folder):**
 > ```bash
-> python "Ultrafast Spectroscopy Analyzer.py"
+> python "UltrafastSpectroscopyAnalyzer.py"
 > ```
 > 
 >  **Create a Standalone Executable (.exe) (Run by typing in your terminal inside the script folder)**:
