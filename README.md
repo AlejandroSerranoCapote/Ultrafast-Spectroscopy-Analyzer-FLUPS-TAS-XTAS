@@ -42,7 +42,29 @@ The total signal is the sum of the contributions of each excited state (SAS):
 $$\Delta A(t, \lambda) = IRF(t) \otimes \sum_{i=1}^{n} SAS_i(\lambda) C_i(t)$$
 
 ---
+### 3. Damped Oscillation Model
+Suitable for systems exhibiting coherent dynamics (e.g., vibrational wavepackets) alongside population relaxation. The total signal is modeled as a superposition of standard parallel decays and a damped oscillatory component.
 
+$$
+\Delta A(t, \lambda) = \left( IRF(t) \otimes \sum_{i=1}^{n} A_i(\lambda) e^{-t/\tau_i} \right) + B(\lambda) \cdot S_{osc}(t)
+$$
+
+Where:
+* $A_i(\lambda)$ are the decay amplitudes (DAS).
+* $B(\lambda)$ is the **Spectrum of the Oscillation Amplitude**.
+
+The oscillatory term $S_{osc}(t)$ incorporates a "Soft Step" function (using the error function `erf`) to simulate the convolution of the oscillation onset with the Gaussian IRF:
+
+$$
+S_{osc}(t) = \frac{1}{2} \left[ 1 + \text{erf}\left( \frac{t - t_0}{\sqrt{2}w} \right) \right] \cdot e^{-\alpha (t - t_0)} \cdot \sin\big(\omega (t - t_0) + \phi \big)
+$$
+
+**Key Parameters:**
+* $\alpha$: Damping rate.
+* $\omega$: Angular frequency.
+* $\phi$: Phase shift.
+* $w$: Width of the IRF (controls the smoothness of the oscillation "turn-on").
+  
 ### Instrument Response Function (IRF)
 The time resolution is modeled using a Gaussian of width $w$ (FWHM) centered at $t_0$:
 
