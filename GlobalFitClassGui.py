@@ -358,7 +358,7 @@ class GlobalFitPanel(QDialog):
         gb_vis = QGroupBox("4. Visualization")
         form_vis = QFormLayout()
         
-        self.btn_plot_3d = QPushButton("Ver Mapa en 3D")
+        self.btn_plot_3d = QPushButton("3D Map")
         self.btn_plot_3d.clicked.connect(self.plot_3d_surface)
         form_vis.addRow(self.btn_plot_3d)
         
@@ -377,7 +377,7 @@ class GlobalFitPanel(QDialog):
 
         # Tipo de Modelo
         self.combo_model = QComboBox()
-        self.combo_model.addItems(["Parallel (DAS)", "Sequential (SAS)","Dumped Oscillation"])
+        self.combo_model.addItems(["Parallel (DAS)", "Sequential (SAS)","Damped Oscillation"])
         form_model.addRow("Model Type:", self.combo_model)
 
         # Técnica
@@ -982,7 +982,7 @@ class GlobalFitPanel(QDialog):
                 if "Sequential" in model_str:
                     self.model_type = "Sequential"
                 elif "Oscillation" in model_str:
-                    self.model_type = "Dumped Oscillation"
+                    self.model_type = "Damped Oscillation"
                 else:
                     self.model_type = "Parallel"
     
@@ -993,7 +993,7 @@ class GlobalFitPanel(QDialog):
                     numWL = 0
                 
                 # Calcular L_needed según el modelo ACTUAL
-                if self.model_type == "Dumped Oscillation":
+                if self.model_type == "Damped Oscillation":
                      # Estructura: [w, t0, taus..., alpha, omega, phi, (A..., B)_wl...]
                      # Params globales: 2 (w,t0) + numExp + 3 (osc) = 5 + numExp
                      # Params locales por WL: numExp + 1
@@ -1178,7 +1178,7 @@ class GlobalFitPanel(QDialog):
             
             if self.model_type == "Sequential":
                 F = fit.eval_sequential_model(x_full, TD, self.numExp, numWL, self.t0_choice)
-            elif self.model_type == 'Dumped Oscillation':
+            elif self.model_type == 'Damped Oscillation':
                 F = fit.eval_oscillation_model(x_full, TD, self.numExp, numWL, self.t0_choice)
             else:
                 F = fit.eval_global_model(x_full, TD, self.numExp, numWL, self.t0_choice)
@@ -1230,7 +1230,7 @@ class GlobalFitPanel(QDialog):
             # --- 1. Reconstruir Matriz de Ajuste y Residuos ---
             if self.model_type == "Sequential":
                 F_mat = fit.eval_sequential_model(x, TD, numExp, numWL, self.t0_choice)
-            elif self.model_type == 'Dumped Oscillation':
+            elif self.model_type == 'Damped Oscillation':
                 F_mat = fit.eval_oscillation_model(x, TD, numExp, numWL, self.t0_choice)
             else:
                 F_mat = fit.eval_global_model(x, TD, numExp, numWL, self.t0_choice)

@@ -105,8 +105,6 @@ def eval_global_model(x, t, numExp, numWL, t0_choice_str):
         taus = x[2:2+numExp]
         A_base = 2 + numExp
         
-        # --- CORRECCIÓN AQUÍ ---
-        # NO usamos bucle for. Pasamos 'taus' entero.
         # Devuelve directamente la matriz (Tiempo x numExp)
         basis_functions = convolved_exp_vectorized(t, t0, taus, w)
             

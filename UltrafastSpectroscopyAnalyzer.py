@@ -9,132 +9,297 @@ Created on Sun Oct 12 16:25:52 2025
 # IMPORTS
 # =============================================================================
 
+# --- LIBRERÍAS ESTÁNDAR ---
 import os
 import sys
+import time
+
+# --- LIBRERÍAS DE TERCEROS (Cálculo y Ciencia) ---
 import numpy as np
 import pandas as pd
-from matplotlib import cm
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib import gridspec
 from scipy.optimize import least_squares
 from scipy.interpolate import RegularGridInterpolator, interp1d
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QFileDialog, QMessageBox, QSlider, QInputDialog,
-    QDialog, QTabWidget, QProgressBar, QTableWidget, QTableWidgetItem,
-    QHeaderView, QComboBox, QDoubleSpinBox, QFrame,QSpinBox,QDial,QSpacerItem, QSizePolicy
-    ,QGroupBox, QHBoxLayout, QRadioButton,QCheckBox,QFormLayout
-)
-from PyQt5.QtGui import QFont, QPalette, QColor
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtWidgets import QLineEdit, QLabel, QHBoxLayout
-import fit
-from core_analysis import fit_t0, load_data,eV_a_nm
-from PyQt5.QtWidgets import QLineEdit, QLabel, QHBoxLayout
-import time
+
+# --- LIBRERÍAS DE TERCEROS (Visualización / Matplotlib) ---
+import matplotlib.pyplot as plt
+from matplotlib import cm, gridspec
+from matplotlib.figure import Figure
+from matplotlib.colors import BoundaryNorm
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-from matplotlib.colors import BoundaryNorm
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+# --- INTERFAZ GRÁFICA (PyQt5) ---
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QDialog, QTabWidget,
+    QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout,
+    QPushButton, QLabel, QLineEdit, QFileDialog, QMessageBox,
+    QProgressBar, QTableWidget, QTableWidgetItem, QHeaderView,
+    QComboBox, QDoubleSpinBox, QSpinBox, QSlider, QDial,
+    QFrame, QGroupBox, QRadioButton, QCheckBox, QSpacerItem, QSizePolicy,QInputDialog
+)
+from PyQt5.QtGui import QFont, QPalette, QColor, QDesktopServices, QIcon
+from PyQt5.QtCore import Qt, QTimer, QUrl, QSize
+
+# --- MÓDULOS LOCALES (Tus propios archivos) ---
+import fit
+from core_analysis import fit_t0, load_data, eV_a_nm
 from GlobalFitClassGui import GlobalFitPanel
+from maps_from_timescans import AppWindow as XFELWindow
+
+STYLESHEET = """
+    QMainWindow {
+        background-color: #121212;
+    }
+    
+    /* TÍTULOS */
+    QLabel#MainTitle {
+        color: #ffffff;
+        font-family: "Segoe UI", sans-serif;
+        font-size: 32px;
+        font-weight: bold;
+        letter-spacing: 1px;
+    }
+    QLabel#SubTitle {
+        color: #00bfff;
+        font-family: "Segoe UI", sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 20px;
+    }
+
+    /* TARJETAS / BOTONES GRANDES */
+    QPushButton {
+        background-color: #1e1e1e;
+        color: #e0e0e0;
+        border: 2px solid #2a2a2a;
+        border-radius: 12px;
+        font-family: "Segoe UI", sans-serif;
+        font-size: 16px;
+        font-weight: bold;
+        text-align: left;
+        padding: 25px;
+    }
+    QPushButton:hover {
+        background-color: #252525;
+        border: 2px solid #00bfff;
+        color: #ffffff;
+    }
+    QPushButton:pressed {
+        background-color: #00bfff;
+        color: #121212;
+    }
+
+    /* ESTILO DESTACADO PARA XFEL (NUEVO) */
+    QPushButton#NewApp {
+        background-color: #162026;
+        border: 2px solid #005f7f;
+    }
+    QPushButton#NewApp:hover {
+        border: 2px solid #00e5ff;
+        background-color: #003f5c;
+    }
+
+    /* BOTÓN GITHUB (PILL STYLE) */
+    QPushButton#GitBtn {
+        background-color: transparent;
+        color: #666;
+        border: 1px solid #444;
+        border-radius: 15px;
+        font-size: 12px;
+        padding: 6px 20px;
+        text-align: center;
+        font-weight: normal;
+    }
+    QPushButton#GitBtn:hover {
+        color: white;
+        border: 1px solid #ffffff;
+        background-color: #222;
+    }
+
+    /* FOOTER TEXT */
+    QLabel#Footer {
+        color: #555;
+        font-size: 11px;
+    }
+    QLabel#Contact {
+        color: #00bfff;
+        font-weight: bold;
+    }
+"""
 
 class MainApp(QMainWindow):
     '''
-    VENTANA PRINCIPAL (FLUPS/TAS)
+    VENTANA PRINCIPAL (DASHBOARD)
     '''
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Data Analyzer Selector")
-        self.setMinimumSize(500, 300)
-
-        palette = self.palette()
-        palette.setColor(QPalette.Window, QColor("#1e1e1e"))
-        palette.setColor(QPalette.WindowText, QColor("#f0f0f0"))
-        self.setPalette(palette)
-
-        # --- Widget central ---
-        central_widget = QWidget()
-        layout = QVBoxLayout(central_widget)
-        layout.setAlignment(Qt.AlignCenter)
-
-        # --- Título principal ---
-        title = QLabel("Select Analysis Mode")
-        title.setFont(QFont("Segoe UI", 20, QFont.Bold))
-        title.setStyleSheet("color: #00bfff; margin-bottom: 20px;")
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
-
-        # --- Botones estilizados ---
-        btn_flups = QPushButton("FLUPS Analyzer")
-        btn_tas = QPushButton("TAS Analyzer")
-        btn_global_fit = QPushButton("Global fit")
+        self.setWindowTitle("Ultrafast Spectroscopy Analyzer")
+        self.setMinimumSize(800, 400) 
+        self.setStyleSheet(STYLESHEET)
         
-        for btn in [btn_flups, btn_tas,btn_global_fit]:
-            btn.setFont(QFont("Segoe UI", 12))
-            btn.setFixedHeight(45)
-            btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #2d2d2d;
-                    color: white;
-                    border-radius: 10px;
-                    border: 2px solid #00bfff;
-                    padding: 8px 16px;
-                }
-                QPushButton:hover {
-                    background-color: #00bfff;
-                    color: black;
-                }
-                QPushButton:pressed {
-                    background-color: #007acc;
-                    color: white;
+        # URL de tu GitHub
+        self.github_url = "https://github.com/AlejandroSerranoCapote/Ultrafast-Spectroscopy-Analyzer"
+
+        self.initUI()
+
+    def initUI(self):
+            central_widget = QWidget()
+            self.setCentralWidget(central_widget)
+            
+            # Layout Principal
+            main_layout = QVBoxLayout(central_widget)
+            main_layout.setContentsMargins(50, 40, 50, 30)
+            main_layout.setSpacing(1)
+    
+            # 1. ENCABEZADO
+            title = QLabel("SELECT ANALYSIS MODE")
+            title.setObjectName("MainTitle")
+            title.setAlignment(Qt.AlignCenter)
+            
+            subtitle = QLabel("Ultrafast Spectroscopy Processing Tools")
+            subtitle.setObjectName("SubTitle")
+            subtitle.setAlignment(Qt.AlignCenter)
+    
+            main_layout.addWidget(title)
+            main_layout.addWidget(subtitle)
+    
+            # 2. GRID DE BOTONES
+            grid = QGridLayout()
+            grid.setSpacing(20)
+    
+            # Textos
+            txt_flups = "FLUPS ANALYZER"
+            txt_tas   = "TAS ANALYZER"
+            txt_fit   = "GLOBAL FIT"
+            txt_xfel  = "2D MAPPER"    
+            
+            # Crear Botones
+            self.btn_flups = self.create_card(txt_flups)
+            self.btn_tas   = self.create_card(txt_tas)
+            self.btn_fit   = self.create_card(txt_fit)
+            self.btn_xfel  = self.create_card(txt_xfel)
+            self.btn_xfel.setObjectName("NewApp") 
+    
+            # Conectar
+            self.btn_flups.clicked.connect(self.launch_flups)
+            self.btn_tas.clicked.connect(self.launch_tas)
+            self.btn_fit.clicked.connect(self.launch_global)
+            self.btn_xfel.clicked.connect(self.launch_xfel)
+    
+            grid.addWidget(self.btn_flups, 0, 0)
+            grid.addWidget(self.btn_tas, 0, 1)
+            grid.addWidget(self.btn_fit, 1, 0)
+            grid.addWidget(self.btn_xfel, 1, 1)
+    
+            main_layout.addLayout(grid)
+            main_layout.addSpacing(20)
+    
+ 
+            footer_layout = QVBoxLayout()
+            footer_layout.setSpacing(10) 
+    
+            self.btn_github = QPushButton("View Source Code on GitHub")
+            self.btn_github.setObjectName("GitBtn")
+            self.btn_github.setCursor(Qt.PointingHandCursor)
+            self.btn_github.setFixedWidth(220)
+            self.btn_github.clicked.connect(self.open_github)
+    
+            # Centrar botón
+            h_center = QHBoxLayout()
+            h_center.addStretch()
+            h_center.addWidget(self.btn_github)
+            h_center.addStretch()
+            footer_layout.addLayout(h_center)
+    
+            description = QLabel(
+                "Welcome! This free and open-source software allows you to analyze "
+                "ultrafast spectroscopy data from experiments such as "
+                "<b>FLUPS</b> (Fluorescence Upconversion Spectroscopy) "
+                "and <b>TAS</b> (Transient Absorption Spectroscopy).<br><br>"
+                "For any questions or feedback, please contact: "
+                "<span style='color:#00bfff; font-weight:bold;'>alejandro.serrano1610@gmail.com</span>"
+            )
+            description.setWordWrap(True)
+            description.setAlignment(Qt.AlignCenter)
+            
+            description.setStyleSheet("""
+                QLabel {
+                    color: #b0b0b0;
+                    font-size: 10pt; 
+                    margin-top: 10px;
+                    font-family: "Segoe UI";
                 }
             """)
-            layout.addWidget(btn)
+            
+            footer_layout.addWidget(description)
+            main_layout.addLayout(footer_layout)
+
+    def create_card(self, text):
+        btn = QPushButton(text)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setMinimumHeight(100)
         
-        # --- Conexiones ---
-        btn_flups.clicked.connect(self.launch_flups)
-        btn_tas.clicked.connect(self.launch_tas)
-        btn_global_fit.clicked.connect(self.launch_global)
-        
-        self.setCentralWidget(central_widget)
-        # --- Descripción informativa ---Ç
-        description = QLabel(
-            "Welcome! This free and open-source software allows you to analyze "
-            "ultrafast spectroscopy data from experiments such as "
-            "<b>FLUPS</b> (Fluorescence Upconversion Spectroscopy) "
-            "and <b>TAS</b> (Transient Absorption Spectroscopy).<br><br>"
-            "For any questions or feedback, please contact: "
-            "<span style='color:#00bfff; font-weight:bold;'>alejandro.serrano1610@gmail.com</span>"
-        )
-        description.setWordWrap(True)
-        description.setAlignment(Qt.AlignCenter)
-        description.setStyleSheet("""
-            color: #c0c0c0;
-            font-size: 11pt;
-            margin-top: 25px;
+        btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0d0d0d;
+                color: #00bfff;
+                border: 2px solid #00bfff;
+                border-radius: 15px;
+                font-family: "Segoe UI Semibold";
+                font-size: 11pt;
+                padding: 20px;
+                text-align: center;
+            }
+            QPushButton:hover {
+                background-color: #00bfff;
+                color: #000000;
+                border: 2px solid #ffffff;
+                /* Simulación de resplandor */
+                font-weight: bold;
+            }
         """)
-        layout.addWidget(description)
-        
-    # --- Lanzar FLUPS ---
+        return btn
+
+    def open_github(self):
+        QDesktopServices.openUrl(QUrl(self.github_url))
+    def open_tool(self, tool_window):
+            """
+            Oculta el menú principal, abre la herramienta y configura
+            que al cerrar la herramienta, el menú reaparezca.
+            """
+            self.current_tool = tool_window
+            
+            original_close = tool_window.closeEvent
+            
+            def on_close_tool(event):
+                self.show()             
+                original_close(event)  
+                
+            tool_window.closeEvent = on_close_tool
+            
+            tool_window.show()
+            self.hide()
+            
+    def launch_xfel(self):
+        window = XFELWindow() 
+        self.open_tool(window)
+
     def launch_flups(self):
-        self.analyzer = FLUPSAnalyzer()
-        self.analyzer.show()
-        self.close()
+        print("Abriendo FLUPS...")
+        window = FLUPSAnalyzer()
+        self.open_tool(window)
 
-    # --- Lanzar TAS ---
     def launch_tas(self):
-        self.analyzer = TASAnalyzer()
-        self.analyzer.show()
-        self.close()
+        print("Abriendo TAS...")
+        window = TASAnalyzer()
+        self.open_tool(window)
 
-    #Lanzar el global fit
     def launch_global(self):
-        self.analyzer = GlobalFitPanel()
-        self.analyzer.show()
-        self.close()
+        print("Abriendo Global Fit...")
+        window = GlobalFitPanel()
+        self.open_tool(window)
+
         
 class FLUPSAnalyzer(QMainWindow):
 
@@ -480,7 +645,6 @@ class FLUPSAnalyzer(QMainWindow):
         if self.hline_map: self.ax_map.draw_artist(self.hline_map)
         if self.marker_map: self.ax_map.draw_artist(self.marker_map)
         
-        # Plots pequeños (si tienen datos)
         if self.cut_time_small: self.ax_time_small.draw_artist(self.cut_time_small)
         if self.vline_time_small: self.ax_time_small.draw_artist(self.vline_time_small)
         if self.cut_spec_small: self.ax_spec_small.draw_artist(self.cut_spec_small)
@@ -1267,7 +1431,7 @@ class TASAnalyzer(FLUPSAnalyzer):
             "CSV Files (*.csv);;Data Files (*.txt *.dat)"
         )
         if not file_path_medida or not os.path.exists(file_path_medida):
-            self.label_status.setText("❌ No measurement file selected.")
+            self.label_status.setText(" No measurement file selected.")
             return
         # --- Conversión automática .dat → .csv si la opción está activada ---
         if self.chk_convert_dat.isChecked() and file_path_medida.lower().endswith(".dat"):
@@ -1725,10 +1889,26 @@ class TASAnalyzer(FLUPSAnalyzer):
 
 
 if __name__ == "__main__":
+    # 1. Crear la aplicación
     app = QApplication(sys.argv)
 
-    window = MainApp()
+    # 2. Forzar a Windows a reconocer el icono en la barra de tareas
+    # (Sin esto, a veces sale el icono de Python aunque pongas el tuyo)
+    import ctypes
+    myappid = 'spectroscopy.analyzer.v1' # Un ID único para tu app
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+    # 3. Configurar el Icono Global
+    # Asegúrate de que "tu_icono.ico" esté en la misma carpeta que este script
+    icon_path = os.path.join(os.path.dirname(__file__), "icon.ico")
     
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+    else:
+        print(f"Advertencia: No se encontró el icono en {icon_path}")
+
+    # 4. Lanzar la ventana principal
+    window = MainApp()
     window.show()
 
     sys.exit(app.exec_())
