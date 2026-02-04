@@ -14,13 +14,13 @@ import os
 import sys
 import time
 
-# --- LIBRERÍAS DE TERCEROS (Cálculo y Ciencia) ---
+
 import numpy as np
 import pandas as pd
 from scipy.optimize import least_squares
 from scipy.interpolate import RegularGridInterpolator, interp1d
 
-# --- LIBRERÍAS DE TERCEROS (Visualización / Matplotlib) ---
+
 import matplotlib.pyplot as plt
 from matplotlib import cm, gridspec
 from matplotlib.figure import Figure
@@ -41,7 +41,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont, QPalette, QColor, QDesktopServices, QIcon
 from PyQt5.QtCore import Qt, QTimer, QUrl, QSize
 
-# --- MÓDULOS LOCALES (Tus propios archivos) ---
+# --- MÓDULOS LOCALES ---
 import fit
 from core_analysis import fit_t0, load_data, eV_a_nm
 from GlobalFitClassGui import GlobalFitPanel
@@ -1910,5 +1910,6 @@ if __name__ == "__main__":
     # 4. Lanzar la ventana principal
     window = MainApp()
     window.show()
+
 
     sys.exit(app.exec_())
